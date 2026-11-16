@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Release archives
+*.zip
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local credentials and temporary files
+.env
+.env.*
+*.tmp

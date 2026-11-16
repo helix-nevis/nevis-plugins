@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and test
+        run: |
+          python adapters/claude-code/build.py --check
+          python -m unittest discover -s tests -v
+      - name: Check tag matches manifest version
+        shell: python
+        run: |
+          import importlib.util
+          import os
+          from pathlib import Path
+          path = Path("adapters/claude-code/build.py")
+          spec = importlib.util.spec_from_file_location("skill_build", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          manifest = module.load_manifest(Path("skill-src/manifest.yaml"))
+          expected = "v" + manifest["version"]
+          actual = os.environ["GITHUB_REF_NAME"]
+          if actual != expected:
+              raise SystemExit(f"Tag {actual} does not match manifest {expected}")
+      - name: Package installable skill
+        run: |
+          archive="solution-delivery-loop-skill-${GITHUB_REF_NAME}.zip"
+          cd dist
+          zip -r "../${archive}" solution-delivery-loop
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: solution-delivery-loop-skill-${{ github.ref_name }}.zip
+          generate_release_notes: true
