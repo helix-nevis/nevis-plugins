@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  validate-skill:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -18,9 +18,56 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build and validate skill
-        run: python adapters/claude-code/build.py --check
-      - name: Ensure committed distribution is current
-        run: git diff --exit-code -- dist/
-      - name: Run tests
-        run: python -m unittest discover -s tests -v
+      - name: Validate direct-maintenance skill
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+
+          root = Path.cwd()
+          skill_dir = root / "solution-delivery-loop"
+          skill = skill_dir / "SKILL.md"
+          text = skill.read_text(encoding="utf-8")
+          errors = []
+
+          if not text.startswith("---\n"):
+              errors.append("SKILL.md must start with YAML frontmatter")
+          else:
+              parts = text.split("---", 2)
+              if len(parts) < 3:
+                  errors.append("SKILL.md frontmatter is not closed")
+              else:
+                  frontmatter = parts[1]
+                  if not re.search(r"(?m)^name: solution-delivery-loop$", frontmatter):
+                      errors.append("Skill name is missing or incorrect")
+                  if not re.search(r"(?m)^description: .+$", frontmatter):
+                      errors.append("Skill description is missing")
+
+          markdown_files = [root / "README.md", *skill_dir.rglob("*.md")]
+          for path in markdown_files:
+              content = path.read_text(encoding="utf-8")
+              fence = chr(96) * 3
+          if content.count(fence) % 2:
+              errors.append(f"Unclosed code fence: {path.relative_to(root)}")
+              for target in re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", content):
+                  if "://" in target or target.startswith(("#", "mailto:")):
+                      continue
+                  clean = target.split("#", 1)[0]
+                  if clean and not (path.parent / clean).resolve().exists():
+                      errors.append(f"Broken link in {path.relative_to(root)}: {target}")
+
+          forbidden = ("skill-src/", "adapters/claude-code/", "dist/solution-delivery-loop")
+          for path in [root / "README.md", root / "CLAUDE.md", *skill_dir.rglob("*.md")]:
+              content = path.read_text(encoding="utf-8")
+              for old_path in forbidden:
+                  if old_path in content:
+                      errors.append(f"Obsolete path {old_path} in {path.relative_to(root)}")
+
+          if not (skill_dir / "references").is_dir():
+              errors.append("references/ is missing")
+          if (root / "SKILL.md").exists():
+              errors.append("Root SKILL.md would create a second authoritative skill")
+
+          if errors:
+              raise SystemExit("\n".join(errors))
+          print(f"Validated {len(markdown_files)} Markdown files and direct-install skill structure")

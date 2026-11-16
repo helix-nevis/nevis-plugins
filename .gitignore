@@ -1,15 +1,10 @@
-# Python
+# Python (only local tooling, if any)
 __pycache__/
 *.py[cod]
 .venv/
-
-# Test and coverage
+.pytest_cache/
 .coverage
 htmlcov/
-.pytest_cache/
-
-# Release archives
-*.zip
 
 # Editors and operating systems
 .vscode/
@@ -21,3 +16,4 @@ Thumbs.db
 .env
 .env.*
 *.tmp
+*.zip

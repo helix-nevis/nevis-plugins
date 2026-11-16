@@ -2,33 +2,40 @@
 
 ## 仓库职责
 
-本仓库维护“方案收敛与交付闭环工作法”及其 Claude Code Skill 发布结果。它不是使用该方法的具体项目，不存放项目需求、实施代码、业务数据或过程日志。
+本仓库维护“方案收敛与交付闭环工作法”及一个可直接安装的 Claude Code Skill。它不是使用该方法的具体项目，不存放项目需求、实施代码、业务数据或过程日志。
 
-## 修改位置
+## 正式内容位置
 
-- 方法论解释与完整规则：修改 `methodology/solution-delivery-loop.md`。
-- 智能体执行规则：修改 `skill-src/instructions.md`。
-- Skill 名称、描述、版本及必要规则清单：修改 `skill-src/manifest.yaml`。
-- 构建和校验：修改 `adapters/claude-code/build.py` 与 `tests/`。
-- `dist/`：只能由构建器生成，不直接修改生成的 `SKILL.md`。
+- 方法论解释：修改 `methodology/solution-delivery-loop.md`。
+- Skill 执行主干：直接修改 `solution-delivery-loop/SKILL.md`。
+- 具体方法、字段和检查表：直接修改 `solution-delivery-loop/references/`。
+- 项目介绍和安装说明：修改根目录 `README.md`。
 
-## 同步原则
+只有内层 `solution-delivery-loop/` 是正式 Skill。不要在仓库根目录创建第二份 `SKILL.md`，不要恢复 src、dist、adapter、manifest 或构建发布链。
 
-方法论与 Skill 不追求逐字一致，但必须保持核心规则一致。方法论修改后检查执行源；执行适配不得引入与方法论冲突的新规则。
+## 正文与 Skill 同步
 
-必要规则检查只能发现明显遗漏，不能替代语义审阅。涉及核心流程变化时，在提交说明中同时描述方法论与 Skill 的变化。
+方法论与 Skill 不追求逐字一致，但所有影响执行行为的规则必须进入 `SKILL.md` 或其 references。背景解释可以只保留在方法论正文。
+
+修改核心方法时逐条审阅对应执行规则；引用细则不能代替实际读取。CI 的结构和关键词检查只能发现部分问题，不能证明语义完整。
+
+## 安装边界
+
+安装只需要内层 `solution-delivery-loop/`。所有 Skill 内部引用使用相对于 `SKILL.md` 的路径，复制该目录后仍须有效。方法论和仓库维护文档不应成为 Skill 运行依赖。
 
 ## 验证
 
-```bash
-python adapters/claude-code/build.py --check
-python -m unittest discover -s tests -v
-git diff --exit-code -- dist/
-```
+推送前检查：
 
-## 发布
+- `solution-delivery-loop/SKILL.md` frontmatter 有效；
+- Markdown 相对链接可解析；
+- 代码块闭合；
+- 旧构建路径未回流；
+- 工作区无意外生成文件或敏感信息。
 
-发布版本由 `skill-src/manifest.yaml` 的 `version` 与 Git tag 共同标识。发布前更新 `CHANGELOG.md`，确保构建产物已同步。Release 只打包 `dist/solution-delivery-loop/`。
+## 版本
+
+使用 Git 提交和标签记录版本。发布前更新 `CHANGELOG.md`。不自动构建 zip，不维护 Release workflow；历史 `v0.1.0` 保持原貌。
 
 ## 安全边界
 
