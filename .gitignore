@@ -17,3 +17,8 @@ Thumbs.db
 .env.*
 *.tmp
 *.zip
+
+# Project source index databases (.proj is per-project runtime data)
+**/.proj/sources/*.sqlite3
+**/.proj/sources/*.sqlite3-wal
+**/.proj/sources/*.sqlite3-shm

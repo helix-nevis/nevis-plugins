@@ -74,6 +74,7 @@ async function capture(event: PromptEvent): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS messages_session_time
           ON messages(session_id, captured_at);
+        CREATE INDEX IF NOT EXISTS messages_prompt ON messages(prompt_id);
       `);
       connection.prepare('INSERT OR IGNORE INTO source_instances VALUES (?, 1)')
         .run(randomUUID());

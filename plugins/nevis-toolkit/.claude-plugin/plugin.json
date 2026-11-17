@@ -2,7 +2,7 @@
   "name": "nevis-toolkit",
   "displayName": "nevis 工具集",
   "description": "nevis 的 Claude Code 工具集：方法论、需求收敛、方案设计与交付治理类技能。",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "helix-nevis",
     "url": "https://github.com/helix-nevis"
