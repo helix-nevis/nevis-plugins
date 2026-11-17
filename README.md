@@ -37,14 +37,14 @@
 在 Claude Code 会话外执行：
 
 ```bash
-claude plugin marketplace add helix-nevis/solution-delivery-loop
+claude plugin marketplace add helix-nevis/nevis-plugins
 ```
 
 ```bash
 claude plugin install nevis-toolkit@nevis-plugins
 ```
 
-或在会话内使用 `/plugin marketplace add helix-nevis/solution-delivery-loop`，再从 `/plugin` 面板安装。
+或在会话内使用 `/plugin marketplace add helix-nevis/nevis-plugins`，再从 `/plugin` 面板安装。
 
 安装后技能命令为 `/nevis-toolkit:solution-delivery-loop`。命令由“插件名:技能名”组成，以后往这个插件里增加别的技能时，只需在 `skills/` 下新增目录，安装命令和插件标识都不用变。
 
