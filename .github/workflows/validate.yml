@@ -18,37 +18,110 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Validate direct-maintenance skill
+      - name: Validate plugin and marketplace structure
         shell: python
         run: |
+          import json
           import re
           from pathlib import Path
 
           root = Path.cwd()
-          skill_dir = root / "solution-delivery-loop"
+          marketplace_file = root / ".claude-plugin" / "marketplace.json"
+          plugin_dir = root / "plugins" / "nevis-toolkit"
+          plugin_file = plugin_dir / ".claude-plugin" / "plugin.json"
+          skill_dir = plugin_dir / "skills" / "solution-delivery-loop"
           skill = skill_dir / "SKILL.md"
-          text = skill.read_text(encoding="utf-8")
           errors = []
 
-          if not text.startswith("---\n"):
-              errors.append("SKILL.md must start with YAML frontmatter")
-          else:
-              parts = text.split("---", 2)
-              if len(parts) < 3:
-                  errors.append("SKILL.md frontmatter is not closed")
-              else:
-                  frontmatter = parts[1]
-                  if not re.search(r"(?m)^name: solution-delivery-loop$", frontmatter):
-                      errors.append("Skill name is missing or incorrect")
-                  if not re.search(r"(?m)^description: .+$", frontmatter):
-                      errors.append("Skill description is missing")
+          NAME_RE = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
 
-          markdown_files = [root / "README.md", *skill_dir.rglob("*.md")]
+          # --- manifests ---
+          for path in (marketplace_file, plugin_file):
+              if not path.is_file():
+                  errors.append(f"Missing manifest: {path.relative_to(root)}")
+
+          marketplace = plugin = {}
+          try:
+              marketplace = json.loads(marketplace_file.read_text(encoding="utf-8"))
+          except Exception as exc:
+              errors.append(f"Invalid JSON in {marketplace_file.relative_to(root)}: {exc}")
+          try:
+              plugin = json.loads(plugin_file.read_text(encoding="utf-8"))
+          except Exception as exc:
+              errors.append(f"Invalid JSON in {plugin_file.relative_to(root)}: {exc}")
+
+          if marketplace:
+              if not re.match(NAME_RE, marketplace.get("name", "")) or ".." in marketplace.get("name", ""):
+                  errors.append("marketplace.json: invalid or missing name")
+              if not marketplace.get("owner", {}).get("name"):
+                  errors.append("marketplace.json: owner.name is required")
+              entries = marketplace.get("plugins")
+              if not isinstance(entries, list) or not entries:
+                  errors.append("marketplace.json: plugins must be a non-empty array")
+                  entries = []
+              names = []
+              for index, entry in enumerate(entries):
+                  prefix = f"marketplace.json plugins[{index}]"
+                  name = entry.get("name", "")
+                  names.append(name)
+                  if not re.match(NAME_RE, name):
+                      errors.append(f"{prefix}: invalid or missing name")
+                  source = entry.get("source")
+                  if not isinstance(source, str):
+                      errors.append(f"{prefix}: relative path source string required")
+                  elif not source.startswith("./"):
+                      errors.append(f"{prefix}: source must start with './'")
+                  elif ".." in source:
+                      errors.append(f"{prefix}: source must not contain '..'")
+                  elif not (root / source).is_dir():
+                      errors.append(f"{prefix}: source path not found: {source}")
+              if len(names) != len(set(names)):
+                  errors.append("marketplace.json: duplicate plugin name")
+
+          if plugin:
+              if not re.match(NAME_RE, plugin.get("name", "")):
+                  errors.append("plugin.json: invalid or missing name")
+              if not plugin.get("version"):
+                  errors.append("plugin.json: version is required so releases update installed users")
+              for field in ("description", "homepage", "repository", "license"):
+                  if not plugin.get(field):
+                      errors.append(f"plugin.json: {field} is recommended and currently unset")
+              if marketplace and plugin:
+                  entry_names = {e.get("name") for e in marketplace.get("plugins", [])}
+                  if plugin.get("name") not in entry_names:
+                      errors.append("plugin.json name must match its marketplace entry name")
+                  for entry in marketplace.get("plugins", []):
+                      if entry.get("name") == plugin.get("name"):
+                          if entry.get("version") and entry["version"] != plugin.get("version"):
+                              errors.append("marketplace entry version disagrees with plugin.json")
+
+          # --- skill frontmatter ---
+          if not skill.is_file():
+              errors.append("plugins/nevis-toolkit/skills/solution-delivery-loop/SKILL.md is missing")
+          else:
+              text = skill.read_text(encoding="utf-8")
+              if not text.startswith("---\n"):
+                  errors.append("SKILL.md must start with YAML frontmatter")
+              else:
+                  parts = text.split("---", 2)
+                  if len(parts) < 3:
+                      errors.append("SKILL.md frontmatter is not closed")
+                  else:
+                      frontmatter = parts[1]
+                      if not re.search(r"(?m)^name: solution-delivery-loop$", frontmatter):
+                          errors.append("Skill name is missing or incorrect")
+                      if not re.search(r"(?m)^description: .+$", frontmatter):
+                          errors.append("Skill description is missing")
+
+          # --- markdown fences and relative links ---
+          markdown_files = sorted({root / "README.md", root / "CLAUDE.md", *root.rglob("*.md")})
           for path in markdown_files:
+              if not path.is_file() or ".git" in path.parts:
+                  continue
               content = path.read_text(encoding="utf-8")
               fence = chr(96) * 3
-          if content.count(fence) % 2:
-              errors.append(f"Unclosed code fence: {path.relative_to(root)}")
+              if content.count(fence) % 2:
+                  errors.append(f"Unclosed code fence: {path.relative_to(root)}")
               for target in re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", content):
                   if "://" in target or target.startswith(("#", "mailto:")):
                       continue
@@ -56,8 +129,11 @@ jobs:
                   if clean and not (path.parent / clean).resolve().exists():
                       errors.append(f"Broken link in {path.relative_to(root)}: {target}")
 
+          # --- forbidden regressions ---
           forbidden = ("skill-src/", "adapters/claude-code/", "dist/solution-delivery-loop")
-          for path in [root / "README.md", root / "CLAUDE.md", *skill_dir.rglob("*.md")]:
+          for path in [root / "README.md", root / "CLAUDE.md", *root.rglob("*.md")]:
+              if not path.is_file() or ".git" in path.parts:
+                  continue
               content = path.read_text(encoding="utf-8")
               for old_path in forbidden:
                   if old_path in content:
@@ -67,7 +143,12 @@ jobs:
               errors.append("references/ is missing")
           if (root / "SKILL.md").exists():
               errors.append("Root SKILL.md would create a second authoritative skill")
+          if (root / "solution-delivery-loop").exists():
+              errors.append("Legacy inner skill directory must not be reintroduced")
 
           if errors:
               raise SystemExit("\n".join(errors))
-          print(f"Validated {len(markdown_files)} Markdown files and direct-install skill structure")
+          print(
+              f"Validated marketplace '{marketplace['name']}' with "
+              f"{len(marketplace['plugins'])} plugin(s) and {len(markdown_files)} Markdown files"
+          )

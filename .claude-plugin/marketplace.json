@@ -1,0 +1,25 @@
+{
+  "name": "nevis-plugins",
+  "description": "nevis 的 Claude Code 插件市场：方法论、需求与方案治理类工具。",
+  "version": "0.3.0",
+  "owner": {
+    "name": "helix-nevis",
+    "url": "https://github.com/helix-nevis"
+  },
+  "plugins": [
+    {
+      "name": "nevis-toolkit",
+      "source": "./plugins/nevis-toolkit",
+      "description": "nevis 工具集：以“方案收敛与交付闭环工作法”为核心，覆盖需求梳理、方案设计、方案审计、工作规划与交付复核，后续将加入具体项目开发类技能。",
+      "category": "methodology",
+      "tags": [
+        "methodology",
+        "requirements",
+        "solution-design",
+        "audit",
+        "planning",
+        "delivery"
+      ]
+    }
+  ]
+}

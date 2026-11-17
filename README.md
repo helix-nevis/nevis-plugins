@@ -2,12 +2,13 @@
 
 把影响执行的不确定性逐步转化为已对齐、可验证的结论，让智能体按明确依据推进常规工作，让人只处理关键取舍、矛盾与授权事项。
 
-本仓库维护：
+本仓库同时是 **Claude Code 插件市场（marketplace）** 和其中第一个插件的源码仓库：
 
+- 市场标识：`nevis-plugins`
+- 首个插件：`nevis-toolkit`
+- 插件内技能：`solution-delivery-loop`
 - [完整方法论正文](methodology/solution-delivery-loop.md)：解释方法、原则与产物结构；
-- [正式 Claude Code Skill](solution-delivery-loop/SKILL.md)：直接维护、可直接安装的执行内容。
-
-内层 `solution-delivery-loop/` 就是 Skill 本体，不需要构建、生成或平台适配。
+- [插件技能正文](plugins/nevis-toolkit/skills/solution-delivery-loop/SKILL.md)：可直接安装的执行内容。
 
 ## 工作法能解决什么
 
@@ -29,50 +30,61 @@
 
 实际使用不必完整走完六步。先判断本轮需要解决的问题，只执行相关步骤。
 
-## 安装 Claude Code Skill
+## 安装
 
-安装只需要内层 `solution-delivery-loop/` 目录，其中包含 `SKILL.md` 与 `references/`。仓库中的方法论、README、CI 和维护说明不是运行依赖。
+### 通过市场安装（推荐）
 
-### 项目级安装
-
-在本仓库根目录执行：
+在 Claude Code 会话外执行：
 
 ```bash
-cp -R solution-delivery-loop /path/to/project/.claude/skills/
+claude plugin marketplace add helix-nevis/solution-delivery-loop
+```
+
+```bash
+claude plugin install nevis-toolkit@nevis-plugins
+```
+
+或在会话内使用 `/plugin marketplace add helix-nevis/solution-delivery-loop`，再从 `/plugin` 面板安装。
+
+安装后技能命令为 `/nevis-toolkit:solution-delivery-loop`。命令由“插件名:技能名”组成，以后往这个插件里增加别的技能时，只需在 `skills/` 下新增目录，安装命令和插件标识都不用变。
+
+本地开发时，可直接加载工作副本而不安装：
+
+```bash
+claude --plugin-dir ./plugins/nevis-toolkit
+```
+
+自定义市场默认不自动更新。需要跟随更新时，在 `/plugin` 的 **Marketplaces** 中开启 **Enable auto-update**，或手动执行 `claude plugin update nevis-toolkit@nevis-plugins`。
+
+### 直接复制技能目录
+
+如果不需要插件机制，也可以只复制技能目录：
+
+```bash
+cp -R plugins/nevis-toolkit/skills/solution-delivery-loop \
+  /path/to/project/.claude/skills/
 ```
 
 Windows PowerShell：
 
 ```powershell
-Copy-Item -Recurse -Force solution-delivery-loop `
+Copy-Item -Recurse -Force `
+  plugins/nevis-toolkit/skills/solution-delivery-loop `
   <目标项目>/.claude/skills/
 ```
 
-安装后的结构：
+复制后命令为 `/solution-delivery-loop`，不带前缀。
 
-```text
-<目标项目>/.claude/skills/solution-delivery-loop/
-├── SKILL.md
-└── references/
-```
+### 版本提示
 
-重新打开或刷新 Claude Code 会话后，使用 `/solution-delivery-loop`。
-
-### 用户级安装
-
-如果希望所有项目可用，将内层目录复制到：
-
-- Windows：`%USERPROFILE%\.claude\skills\solution-delivery-loop\`
-- macOS / Linux：`~/.claude/skills/solution-delivery-loop/`
-
-也可以下载 GitHub 仓库源码，再按上述方式复制内层目录。当前版本不使用自动 zip 构建或 Release 打包流程。
+插件清单固定了 `version`。维护者每次发布必须同时更新插件清单中的版本号并打 Git 标签，否则已安装的用户不会收到更新。
 
 ## 使用示例
 
 只梳理需求，不进入开发：
 
 ```text
-/solution-delivery-loop
+/nevis-toolkit:solution-delivery-loop
 请使用这套工作法，先盘点影响当前判断的现有资产，
 再帮助我收敛本次需求。本轮只讨论需求，不进入开发。
 ```
@@ -80,7 +92,7 @@ Copy-Item -Recurse -Force solution-delivery-loop `
 审计已有方案：
 
 ```text
-/solution-delivery-loop
+/nevis-toolkit:solution-delivery-loop
 请审计 docs/ 下的当前方案，重点检查需求覆盖、状态一致性、
 外部能力证据和阻断实施的问题。不要自行修改核心范围。
 ```
@@ -88,7 +100,7 @@ Copy-Item -Recurse -Force solution-delivery-loop `
 规划当前批次：
 
 ```text
-/solution-delivery-loop
+/nevis-toolkit:solution-delivery-loop
 请将已确认方案拆成规划级工作项，明确当前批次、依赖、验收和授权事项，
 不提前细化未来批次，也不要开始编码。
 ```
@@ -96,25 +108,32 @@ Copy-Item -Recurse -Force solution-delivery-loop `
 ## 仓库结构
 
 ```text
-├── solution-delivery-loop/  # 正式 Skill，直接维护与安装
-│   ├── SKILL.md             # 执行主干、硬约束与细则导航
-│   └── references/          # 按需读取的完整操作细则
-├── methodology/             # 方法论完整说明
-├── README.md                # 项目与安装入口
-├── CHANGELOG.md             # 版本变化
-├── CLAUDE.md                # 仓库维护约定
-└── .github/workflows/       # 轻量结构与链接校验
+├── .claude-plugin/
+│   └── marketplace.json          # 市场清单：列出插件及来源
+├── plugins/
+│   └── nevis-toolkit/            # 插件根
+│       ├── .claude-plugin/
+│       │   └── plugin.json       # 插件清单：名称、版本、元数据
+│       └── skills/
+│           └── solution-delivery-loop/
+│               ├── SKILL.md      # 执行主干、硬约束与细则导航
+│               └── references/   # 按需读取的完整操作细则
+├── methodology/                  # 方法论完整说明
+├── README.md                     # 项目与安装入口
+├── CHANGELOG.md                  # 版本变化
+├── CLAUDE.md                     # 仓库维护约定
+└── .github/workflows/            # 结构与清单校验
 ```
 
 ## 维护与版本
 
-1. 直接修改 `solution-delivery-loop/SKILL.md` 和其 `references/`。
-2. 方法论负责完整解释，Skill 负责执行；所有影响行为的规则必须进入 Skill 本体或其 references。
-3. 修改核心方法时逐条审阅正文与 Skill，不依赖关键词检查证明语义一致。
-4. 使用 Git 提交和标签记录版本；没有 src、dist、manifest、构建器或自动 Release 打包。
+1. 直接修改 `plugins/nevis-toolkit/skills/solution-delivery-loop/` 下的 `SKILL.md` 与 `references/`。
+2. 方法论负责完整解释，插件技能负责执行；所有影响行为的规则必须进入技能本体或其 references。
+3. 修改核心方法时逐条审阅正文与技能，不依赖关键词检查证明语义一致。
+4. 发布新版本时同时更新 `CHANGELOG.md`、插件清单的 `version` 和 Git 标签。
 5. 讨论执行步骤不等于获得付费调用、真实写入、迁移或部署授权。
 
-历史 `v0.1.0` 保留旧的构建发布结构；`v0.2.0` 起使用当前直接维护结构。
+历史 `v0.1.0` 使用旧的构建发布结构，`v0.2.0` 起改为直接维护，`v0.3.0` 起改为插件市场结构。
 
 ## License
 
