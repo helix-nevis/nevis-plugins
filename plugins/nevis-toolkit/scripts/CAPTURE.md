@@ -17,7 +17,7 @@
 claude --plugin-dir E:/solution-delivery-loop/plugins/nevis-toolkit
 ```
 
-在测试项目发送消息。脚本从事件 cwd 向上查找最近的 `.proj/` 或 Git 根目录；都不存在时使用 cwd，自动创建 `.proj/sources/messages.sqlite3`。
+在测试项目发送消息。脚本先按 NEVIS_PROJECT_CONFIG、NEVIS_PROJECT_ROOT 或 cwd 向上发现的 project.json 解析治理位置，再写入该治理目录的 `.proj/sources/messages.sqlite3`。显式值或发现的配置无效时失败，不静默换项目。没有配置时，兼容旧规则：从事件 cwd 向上找最近的 `.proj/` 或 Git 根；都不存在时使用 cwd。详见 [项目配置说明](PROJECT.md)。
 
 ## 记录内容
 
@@ -28,7 +28,7 @@ claude --plugin-dir E:/solution-delivery-loop/plugins/nevis-toolkit
 | `capture_id` | UUID，项目侧稳定来源编号 |
 | `captured_at` | UTC 捕获时间 |
 | `session_id` | 会话标识 |
-| `prompt_id` | 一轮输入的相关标识，**定位主键** |
+| `prompt_id` | 一轮输入的相关标识，用于关联定位；SQL 中为非唯一索引，表主键为 capture_id |
 | `transcript_path` | 本机会话记录路径，迁移时允许重新映射 |
 | `cwd` | 捕获时的工作目录 |
 | `prompt_sha256` | Hook 收到的 prompt 文本哈希，**仅作辅助校验** |
@@ -42,10 +42,10 @@ claude --plugin-dir E:/solution-delivery-loop/plugins/nevis-toolkit
 
 1. **用 `prompt_id` 定位**。它在会话记录中命中该轮的 `user` 记录；其中 `origin.kind == "human"` 的那条带真实消息 `uuid`、完整时间与原始内容。对 `prompt_id` 建了索引。
 2. **不要用 `prompt_sha256` 去匹配 `user` 记录的文本**。Hook 收到的 prompt 与 `user` 记录中的内容格式不同：斜杠命令会被包装成 `<command-message>` 等标签，导致哈希不一致。
-3. **哈希匹配的是 `queue-operation` 的 `enqueue` 记录**。实测该记录内容与 Hook 的 prompt 逐字节一致，哈希可对上。它适合做完整性校验，但不像 `prompt_id` 那样能直接指向带 `uuid` 的正式消息。
+3. **本次斜杠命令样本的哈希匹配 `queue-operation` 的 `enqueue` 记录**。该样本内容与 Hook 的 prompt 逐字节一致；这不是所有客户端和消息类型的通用保证。它适合做完整性校验，但不像 `prompt_id` 那样能直接指向带 `uuid` 的正式消息。
 4. 会话记录是异步写入的，捕获瞬间可能还查不到对应记录；取回时应有等待或重试。
 
-因此：**`prompt_id` 负责定位，`prompt_sha256` 负责校验。**两者都缺时，只能按 `session_id` 与时间窗口做近似定位，并明确标注不确定性。
+因此：**`prompt_id` 负责定位，`prompt_sha256` 负责校验。**当前成功捕获总会保存哈希，prompt_id 可以缺失。prompt_id 缺失、记录未到达或候选无法唯一匹配时，不应宣称精确定位；按 session_id 与时间窗口只能形成待核查候选。自动原文检索与重试仍未实现。
 
 ## 并发和失败
 

@@ -4,10 +4,12 @@
 
 ## 一、典型产物结构
 
-建议在项目工作目录下使用 `.proj/`，先复用已有权威位置，不机械迁移或复制：
+建议在明确的项目治理根目录下使用 `.proj/`，该位置不一定是讨论目录或实施仓库，先复用已有权威位置，不机械迁移或复制：
 
 ```text
 .proj/
+├── project.json              # 共享身份、位置标识与关系
+├── project.local.json        # 本机路径映射，Git 忽略
 ├── README.md                 # 导航、当前入口与关键缺口
 ├── sources/
 │   ├── INDEX.md              # 来源与资产索引
@@ -16,10 +18,35 @@
 ├── inbox/                    # 尚未完成归类或路由的信息
 ├── working/                  # 草稿、分析与辅助理解材料
 └── artifacts/
-    └── project-profile.md    # 项目背景、有效约定及相关入口
+    ├── project-profile.md    # 业务背景、目标、职责和约束解释
+    ├── client-needs.md       # 客户诉求
+    ├── ubiquitous-language.md
+    ├── requirements.md
+    ├── issues.md             # 待澄清、待决、冲突和待验证
+    ├── decisions/            # 重大决策
+    ├── design/               # 方案、契约及审计结论
+    ├── planning/             # 工作项、批次、开工说明
+    ├── delivery/             # 交付、审查和业务验收
+    └── evidence/             # 验证方法、结果与限制
 ```
 
 这是职责结构，不要求预建全部空目录或文件。盘点按需补齐导航、项目档案与来源索引；后续需求、方案、工作规划、统一事项及交付证据在 `artifacts/` 中按需建立，已有等价位置则引用。独立 `discovery.md` 或 `technical-baseline.md` 仅在内容有独立阅读价值时拆分，短盘点结论可留在项目档案。
+
+### 元信息与落盘规则
+
+`.proj/project.json` 是机器可读身份与位置关系，`.proj/project.local.json` 只覆盖本机路径；严格格式与发现顺序见[项目配置与独立使用说明](project-configuration.md)。环境变量是会话投影，不持久保存 CLAUDE_ENV_FILE 的临时路径。项目档案解释背景和约束，来源索引维护入口与覆盖，不复制配置映射。
+
+| 环节 | 默认落盘位置与动作 |
+| --- | --- |
+| 初始化 | project.json、本机映射、project-profile.md 及导航；说明激活状态 |
+| 盘点 | sources/INDEX.md、项目档案，缺口进入 artifacts/issues.md |
+| 需求 | client-needs.md、ubiquitous-language.md、requirements.md；澄清后回填 |
+| 设计 | artifacts/design/；重大取舍引用 decisions/，证据引用 evidence/ |
+| 审计 | design/ 中的审计结论；发现进 issues.md，裁定回填原正文 |
+| 规划 | artifacts/planning/ 的工作项、批次与开工说明 |
+| 执行反馈 | artifacts/delivery/ 与 evidence/；同步工作项和权威正文 |
+
+有效结论随形成及时保存，不能等环节结束才写；候选在对应产物标明状态，草稿放 working/。每环节收尾检查来源、引用、状态、未决和下一步入口。已有等价位置复用并在导航登记，不机械迁移，不要求逐文件审批。
 
 ### 建档与资料归属
 
@@ -53,7 +80,7 @@
 方案概述或导航保存本轮范围、上游依据、设计驱动因素、各视图入口、关键未决与证据引用；可在现有技术方案开头维护，不强制新增文件。以下目录按内容需要产生，不预建空文件。
 
 ```text
-方案/
+artifacts/design/
 ├── 产品交互方案.md
 ├── 领域模型.md
 ├── 技术方案.md
@@ -62,8 +89,8 @@
 │   ├── 接口设计.md
 │   ├── 数据库设计.md
 │   └── 外部服务契约.md
-├── 决策记录.md（或引用统一决策入口）
-└── 验证记录/
+├── 审计结论.md（按需）
+└── 决策与验证引用（指向统一 decisions/、evidence/）
 ```
 
 小项目可以合并。工作项、接口和数据库设计不得各自复制一套业务规则。
@@ -82,7 +109,9 @@
 
 ## 二、贯穿信息的字段与关闭规则
 
-### 待决与验证清单
+### 统一事项清单：artifacts/issues.md
+
+验证步骤、环境、结果和限制放 `artifacts/evidence/`，重大决策放 `artifacts/decisions/`；issues.md 维护问题、影响与关闭引用，不另建阶段台账。
 
 至少记录：
 

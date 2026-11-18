@@ -25,3 +25,6 @@ Thumbs.db
 
 # Generated plugin eval results
 plugins/nevis-toolkit/evals/results/
+
+# Local project path mappings
+**/.proj/project.local.json

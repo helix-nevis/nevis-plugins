@@ -11,6 +11,7 @@ function run(event) {
 for (const source of ['startup', 'resume', 'clear', 'compact', 'fork']) {
   const result = run({ hook_event_name: 'SessionStart', source });
   assert.equal(result.status, 0, result.stderr);
+  assert.ok(/^[\x00-\x7f]*$/.test(result.stdout), 'Hook transport must be ASCII');
   const output = JSON.parse(result.stdout).hookSpecificOutput;
   assert.equal(output.hookEventName, 'SessionStart');
   assert.ok(output.additionalContext.includes(language));

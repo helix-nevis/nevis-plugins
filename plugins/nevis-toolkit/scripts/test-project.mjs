@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+const scripts = fileURLToPath(new URL('./', import.meta.url));
+const temp = mkdtempSync(join(tmpdir(), 'nevis-project-'));
+const env = { ...process.env };
+for (const key of ['NEVIS_PROJECT_CONFIG', 'NEVIS_PROJECT_ROOT', 'NEVIS_PROJECT_ID', 'CLAUDE_ENV_FILE']) delete env[key];
+function run(script, args = [], input, extra = {}) {
+  return spawnSync(process.execPath, [join(scripts, script), ...args], { cwd: temp, env: { ...env, ...extra }, input, encoding: 'utf8' });
+}
+try {
+  const root = join(temp, "治理 空间'$(never)"); mkdirSync(root);
+  const elsewhere = join(temp, 'implementation'); mkdirSync(elsewhere);
+  assert.equal(run('project.ts', ['init', root, '测试项目']).status, 0);
+  const config = join(root, '.proj', 'project.json');
+  const original = readFileSync(config, 'utf8');
+  assert.equal(run('project.ts', ['init', root, 'different name']).status, 0);
+  assert.equal(readFileSync(config, 'utf8'), original);
+  assert.ok(readFileSync(join(root, '.proj', '.gitignore'), 'utf8').includes('project.local.json'));
+  const project = JSON.parse(original);
+  project.locations.push({ id: 'web', role: 'implementation' }, { id: 'api', role: 'implementation' });
+  writeFileSync(config, JSON.stringify(project));
+  const local = join(root, '.proj', 'project.local.json');
+  writeFileSync(local, JSON.stringify({ projectId: project.projectId, locationPaths: { web: elsewhere, api: join(temp, 'future-api') } }));
+  const resolved = run('project.ts', ['resolve', config]); assert.equal(resolved.status, 0, resolved.stderr);
+  assert.equal(JSON.parse(resolved.stdout).locationPaths.web, elsewhere);
+  const envFile = join(temp, 'session-env'); writeFileSync(envFile, '# prior hook\n');
+  const result = run('project-env.ts', [], JSON.stringify({ hook_event_name: 'SessionStart', cwd: elsewhere }), { NEVIS_PROJECT_CONFIG: config, CLAUDE_ENV_FILE: envFile });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(/^[\x00-\x7f]*$/.test(result.stdout), 'Hook transport must be ASCII');
+  const context = JSON.parse(result.stdout).hookSpecificOutput;
+  assert.equal(context.hookEventName, 'SessionStart');
+  assert.ok(context.additionalContext.startsWith('项目路径配置'));
+  assert.ok(context.additionalContext.includes('治理 空间'));
+  assert.ok(readFileSync(envFile, 'utf8').startsWith('# prior hook\n'));
+  const shell = spawnSync('bash', ['-c', 'source "$1"; printf "%s" "$NEVIS_PROJECT_ROOT"', '_', envFile], { encoding: 'utf8' });
+  assert.equal(shell.status, 0, shell.stderr); assert.equal(shell.stdout, root);
+  const capture = run('capture-input.ts', [], JSON.stringify({ hook_event_name: 'UserPromptSubmit', cwd: elsewhere, session_id: 'synthetic', transcript_path: 'synthetic.jsonl', prompt: 'do-not-store' }), { NEVIS_PROJECT_CONFIG: config });
+  assert.equal(capture.status, 0, capture.stderr);
+  assert.ok(existsSync(join(root, '.proj', 'sources', 'messages.sqlite3')));
+  assert.ok(!existsSync(join(elsewhere, '.proj')));
+  const bad = run('project-env.ts', [], JSON.stringify({ hook_event_name: 'SessionStart', cwd: elsewhere }), { NEVIS_PROJECT_CONFIG: join(temp, 'missing.json') });
+  assert.equal(bad.status, 1); assert.equal(bad.stdout, '');
+  writeFileSync(local, JSON.stringify({ projectId: 'wrong', locationPaths: {} }));
+  assert.equal(run('project.ts', ['resolve', config]).status, 1);
+  console.log('Project tests passed: initialization preservation, mappings, shell quoting, context and capture routing, invalid configuration.');
+} finally { rmSync(temp, { recursive: true, force: true }); }

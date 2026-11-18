@@ -178,3 +178,5 @@ jobs:
           node-version: "24"
       - name: Test context injection
         run: node plugins/nevis-toolkit/scripts/test-context.mjs
+      - name: Test project configuration
+        run: node plugins/nevis-toolkit/scripts/test-project.mjs

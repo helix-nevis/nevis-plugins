@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'nod
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { performance } from 'node:perf_hooks';
+import { discoverProject } from './project-config.ts';
 
 type PromptEvent = {
   hook_event_name: string;
@@ -43,7 +44,8 @@ function projectRoot(cwd: string): string {
 async function capture(event: PromptEvent): Promise<void> {
   const cwd = realpathSync(event.cwd);
   if (!statSync(cwd).isDirectory()) throw new Error('Invalid working directory');
-  const directory = join(projectRoot(cwd), '.proj', 'sources');
+  const configured = discoverProject(cwd);
+  const directory = join(configured?.root ?? projectRoot(cwd), '.proj', 'sources');
   mkdirSync(directory, { recursive: true });
   const database = join(directory, 'messages.sqlite3');
   const record = [
