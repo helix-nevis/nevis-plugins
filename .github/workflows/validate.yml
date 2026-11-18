@@ -95,6 +95,26 @@ jobs:
                           if entry.get("version") and entry["version"] != plugin.get("version"):
                               errors.append("marketplace entry version disagrees with plugin.json")
 
+          # --- plugin agent and eval structure ---
+          agent = plugin_dir / "agents" / "solution-auditor.md"
+          if not agent.is_file():
+              errors.append("solution-auditor agent is missing")
+          else:
+              agent_text = agent.read_text(encoding="utf-8")
+              if not re.search(r"(?m)^name: solution-auditor$", agent_text):
+                  errors.append("solution-auditor frontmatter name is missing")
+              if not re.search(r"(?m)^tools: Read, Glob, Grep$", agent_text):
+                  errors.append("solution-auditor must use the explicit read-only tool allowlist")
+          eval_root = plugin_dir / "evals"
+          if not eval_root.is_dir():
+              errors.append("plugin evals directory is missing")
+          else:
+              for case in sorted(p for p in eval_root.iterdir() if p.is_dir() and p.name != "results"):
+                  prompt = case / "prompt.md"
+                  graders = case / "graders"
+                  if not prompt.is_file() or not graders.is_dir() or not any(graders.glob("*.md")):
+                      errors.append(f"incomplete eval case: {case.relative_to(root)}")
+
           # --- skill frontmatter ---
           if not skill.is_file():
               errors.append("plugins/nevis-toolkit/skills/solution-delivery-loop/SKILL.md is missing")
@@ -152,3 +172,9 @@ jobs:
               f"Validated marketplace '{marketplace['name']}' with "
               f"{len(marketplace['plugins'])} plugin(s) and {len(markdown_files)} Markdown files"
           )
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Test context injection
+        run: node plugins/nevis-toolkit/scripts/test-context.mjs

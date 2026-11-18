@@ -22,3 +22,6 @@ Thumbs.db
 **/.proj/sources/*.sqlite3
 **/.proj/sources/*.sqlite3-wal
 **/.proj/sources/*.sqlite3-shm
+
+# Generated plugin eval results
+plugins/nevis-toolkit/evals/results/
